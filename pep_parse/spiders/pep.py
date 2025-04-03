@@ -10,6 +10,9 @@ class PepSpider(scrapy.Spider):
     start_urls = ["https://peps.python.org/"]
 
     def parse(self, response):
+        yield response.follow("numerical/", callback=self.parse_numerical)
+
+    def parse_numerical(self, response):
         index = response.xpath('//*[@id="numerical-index"]').css("tbody")
         all_hrefs = index.css("a::attr(href)").getall()
         for href in all_hrefs:
@@ -25,6 +28,6 @@ class PepSpider(scrapy.Spider):
         context = {
             "number": number,
             "name": name,
-            "status": pep.css("dt:contains('Status') + dd::text").get(),
+            "status": pep.css("abbr::text").get(),
         }
         yield PepParseItem(context)
