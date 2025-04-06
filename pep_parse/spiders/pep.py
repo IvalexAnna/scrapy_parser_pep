@@ -1,13 +1,13 @@
 import scrapy
-import re
 
 from pep_parse.items import PepParseItem
+from pep_parse.settings import NAME, START_URLS, ALLOWED_DOMAINS
 
 
 class PepSpider(scrapy.Spider):
-    name = "pep"
-    allowed_domains = ["peps.python.org"]
-    start_urls = ["https://peps.python.org/"]
+    name = NAME
+    start_urls = START_URLS
+    allowed_domains = ALLOWED_DOMAINS
 
     def parse(self, response):
         yield response.follow("numerical/", callback=self.parse_numerical)
@@ -19,15 +19,23 @@ class PepSpider(scrapy.Spider):
             yield response.follow(href, callback=self.parse_pep)
 
     def parse_pep(self, response):
-        """Парсит страницы с документами и формирует Items"""
         pep = response.css("section[id='pep-content']")
-        pattern = re.compile(r"^PEP\s(?P<number>\d+)[\s–]+(?P<name>.*)")
-        h1_tag = pattern.search(pep.css("h1::text").get())
-        if h1_tag:
-            number, name = h1_tag.group("number", "name")
+        h1_tag = pep.css("h1::text").get()
+        h1_tag = h1_tag.replace('–', '')
+        parts = h1_tag.split()
+        number = None
+        name = None
+
+        for i, part in enumerate(parts):
+            if part.startswith("PEP"):
+                number = parts[i + 1]
+                name = ' '.join(parts[i + 2:])
+                break
+
         context = {
             "number": number,
             "name": name,
             "status": pep.css("abbr::text").get(),
         }
+
         yield PepParseItem(context)
